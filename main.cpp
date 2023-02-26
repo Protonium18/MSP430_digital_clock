@@ -66,10 +66,6 @@ int main(void)
 
     __bis_SR_register(GIE + LPM3_bits);
 
-	while(1){
-
-	}
-
 	return 0;
 }
 
@@ -196,14 +192,36 @@ void RTCWriteTime(){
             }
 
             else if(MODE == 2){
+                CLEAR_TIME;
+                MODE = 3;
+            }
+            else if(MODE == 3){
+                volatile unsigned int i = 64000;
+                while(!(P2IN & BIT4)){
+                    i--;
+                    if(i == 0){
+                        MODE = 4;
+                        writeTime();
+                        LED_ALARM_ON;
+                        ALARM_SET = 1;
+                        break;
+                    }
+                }
+            }
+
+            else if(MODE == 4){
                 MODE = 0;
                 P2IE &= ~BIT7;
+                LED_ALARM_OFF;
+                BUZZER_OFF;
+                ALM = 0;
+                ALARM_SET = 0;
                 READ_TIME;
                 writeTime();
             }
 
             //mode 1 code, changing selection of digits
-            if(MODE == 1){
+            if(MODE == 1 || MODE == 3){
                 if(SELECTION == 1){
                     writeTime();
                     SELECTION = 0;
@@ -220,7 +238,7 @@ void RTCWriteTime(){
 
         if(P2IFG & BIT5){
             //toggling between hrs-mins and mins-secs
-            if(MODE == 0 || MODE == 2){
+            if(MODE == 0 || MODE == 2 || MODE == 4){
                 if(TIME_MODE == 0){
                     TIME_MODE = 1;
                 }
@@ -241,7 +259,7 @@ void RTCWriteTime(){
 
             }
             //if in edit mode 1, increment time when pressed
-            else if(MODE == 1){
+            else if(MODE == 1 || MODE == 3){
                 incrementTime();
             }
             P2IFG &= ~BIT5;
@@ -323,6 +341,29 @@ void RTCWriteTime(){
                     }
                 }
 
+            if(MODE == 4 && ALM == 0){
+                if(TIME[0] != 0){
+                    TIME[0]--;
+                }
+                else if(TIME[0] == 0){
+                    if(TIME[1] != 0){
+                        TIME[1]--;
+                        TIME[0] = 59;
+                    }
+                    else if(TIME[1] == 0){
+                        TIME[2]--;
+                        TIME[1] = 59;
+                    }
+
+                }
+
+                if(TIME[0] == 0 && TIME[1] == 0 && TIME[2] == 0){
+                    ALM = 1;
+                }
+
+
+            }
+
             P2IFG &= ~BIT7;
         }
 
@@ -332,9 +373,6 @@ void RTCWriteTime(){
 #pragma vector = PORT1_VECTOR
     __interrupt void PORT_1_INTERRUPT(void){
         if(P2IFG & BIT3){
-            while(1){
-
-            }
             P2IFG &= ~BIT3;
         }
 
@@ -345,12 +383,12 @@ void RTCWriteTime(){
     __interrupt void TIMER0_INTERRUPT(void){
 
         //mode 0 (clock mode)
-        if(MODE == 0 || MODE == 2){
+        if(MODE == 0 || MODE == 2 || MODE == 4){
             if(MODE == 0){
                 READ_TIME;
             }
 
-            if(TIME_MODE == 0){
+            if(TIME_MODE == 0 || ALM == 1){
                 if(BLINK == 0){
                     writeTime(0);
                     BLINK = 1;
@@ -376,7 +414,7 @@ void RTCWriteTime(){
         }
 
         //edit time (mode 1), blink digit currently selected
-        if(MODE == 1){
+        if(MODE == 1 || MODE == 3){
             if(BLINK == 0){
                 if(SELECTION == 0){
                     screen.clear(0, 2);
@@ -410,7 +448,6 @@ void RTCWriteTime(){
                 BLINK = 0;
             }
         }
-        //keeping track of time locally, need to fix because of counter, not correct (counter is 16383 while crystal is 32768hz, so it's counting by half seconds!!)
 
 
         TA0CTL &= ~TAIFG;

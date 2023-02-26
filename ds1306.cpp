@@ -47,7 +47,7 @@ void DS1306::writeData(uint8_t address, uint8_t data){
 void DS1306::writeTime(uint8_t seconds, uint8_t minutes, uint8_t hours){
 
     this->chipSelect(1);
-    this->byteOut(0x80 | REG_SECONDS, MSB_FIRST);
+    this->byteOut(0x80 | REG_READ_SECONDS, MSB_FIRST);
 
     this->byteOut(DecToBCD(seconds), MSB_FIRST);
     this->byteOut(DecToBCD(minutes), MSB_FIRST);
@@ -59,7 +59,7 @@ void DS1306::writeTime(uint8_t seconds, uint8_t minutes, uint8_t hours){
 void DS1306::readTime(uint8_t* data_array){
     this->chipSelect(1);
 
-    this->byteOut(REG_SECONDS, MSB_FIRST);
+    this->byteOut(REG_READ_SECONDS, MSB_FIRST);
     data_array[0] = BCDToDec(this->byteIn(MSB_FIRST));
     data_array[1] = BCDToDec(this->byteIn(MSB_FIRST));
     data_array[2] = BCDToDec(this->byteIn(MSB_FIRST));
@@ -74,4 +74,23 @@ void DS1306::burstWriteData(uint8_t address, uint8_t* data, uint8_t len){
         this->byteOut(data[i]);
     }
     this->chipSelect(0);
+}
+
+void DS1306::writeAlarm(uint8_t seconds, uint8_t minutes, uint8_t hours){
+
+
+    this->chipSelect(1);
+    this->byteOut(REG_WRITE_ALM0_SECONDS, MSB_FIRST);
+    this->byteOut(DecToBCD(seconds), MSB_FIRST);
+    this->byteOut(DecToBCD(minutes), MSB_FIRST);
+    this->byteOut(DecToBCD(hours), MSB_FIRST);
+    this->chipSelect(0);
+}
+
+void DS1306::alarmEnable(){
+        this->writeData(REG_WRITE_ALM0_DAYS, 0x80);
+}
+
+void DS1306::alarmDisable(){
+        this->writeData(REG_WRITE_ALM0_DAYS, 0x00);
 }
